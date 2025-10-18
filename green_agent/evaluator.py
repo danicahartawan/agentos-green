@@ -65,12 +65,14 @@ class GreenEvaluator:
         steps = 0
         t0 = time.time()
         errors: List[str] = []
+        action_history: List[dict] = []
         
         # Minimal loop; you'll wire real env.step() when ready
         for _ in range(self.cfg.max_steps):
             steps += 1
             try:
                 action = white_agent.predict(instruction, {"obs": "stub"})
+                action_history.append(action)
                 # TODO: obs = env.step(action)
                 time.sleep(0.05)  # simulate
             except Exception as e:
@@ -83,7 +85,7 @@ class GreenEvaluator:
             example_json = json.load(f)
         ok, detail = native_eval_if_available(example_json, env)
         if ok is None or ok is False:
-            ok, detail = fallback_eval(task_spec, env)
+            ok, detail = fallback_eval(task_spec, env, action_history)
         
         wall = int((time.time() - t0) * 1000)
         run_row = {

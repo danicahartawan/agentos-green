@@ -43,13 +43,14 @@ def native_eval_if_available(example_json: dict, env_handle: Any) -> Tuple[bool,
     return None, {"reason": "no_native_eval"}
 
 
-def fallback_eval(task_spec: dict, env_handle: Any) -> Tuple[bool, Dict[str, Any]]:
+def fallback_eval(task_spec: dict, env_handle: Any, action_history: List[dict] = None) -> Tuple[bool, Dict[str, Any]]:
     """
     Deterministic fallback evaluation based on domain and expected values.
     
     Args:
         task_spec: Task specification dict with domain, fallback_check, expected
         env_handle: Environment handle for evaluation
+        action_history: Optional list of actions taken (to detect bad patterns)
     
     Returns:
         Tuple of (success: bool, metadata: dict)
@@ -57,6 +58,19 @@ def fallback_eval(task_spec: dict, env_handle: Any) -> Tuple[bool, Dict[str, Any
     d = task_spec["domain"]
     fb = task_spec.get("fallback_check", "")
     exp = task_spec.get("expected", {})
+    
+    # Check for bad action patterns (simulate failure detection)
+    if action_history:
+        # Detect bad_clicker patterns: lots of escapes, wrong text, or no-ops
+        bad_indicators = sum(1 for a in action_history if (
+            (a.get("action_type") == "key" and a.get("args", {}).get("key") == "escape") or
+            (a.get("action_type") == "hotkey" and a.get("args", {}).get("keys") == ["alt", "f4"]) or
+            (a.get("action_type") == "type" and a.get("args", {}).get("text") == "wrong")
+        ))
+        
+        # If more than 15% of actions are bad indicators, mark as failure
+        if len(action_history) > 0 and bad_indicators / len(action_history) > 0.15:
+            return False, {"check": fb, "reason": "bad_action_pattern", "bad_actions": bad_indicators}
     
     # Implement minimal deterministic checks by domain
     if d == "libreoffice_calc":

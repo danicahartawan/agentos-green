@@ -68,15 +68,63 @@ def write_combined_report(json_path: str, config: Dict[str, Any], agent_summarie
 
 def console_table(rows: List[Dict[str, Any]], headers: List[Tuple[str, str]]):
     """
-    Print a console table.
+    Print a polished console table with right-aligned numbers.
     
     Args:
         rows: List of row dictionaries
         headers: List of (key, title) tuples
     """
-    # headers: list of (key, title)
-    widths = [max(len(h[1]), max((len(str(r.get(h[0], ""))) for r in rows), default=0)) for h in headers]
-    line = "  ".join(h[1].ljust(w) for (w, h) in zip(widths, headers))
-    print(line)
+    if not rows:
+        # Print header only for empty table
+        widths = [len(h[1]) for h in headers]
+        line = "  ".join(h[1].ljust(w) for (w, h) in zip(widths, headers))
+        print(line)
+        return
+    
+    # Detect numeric columns (check if all non-empty values are numeric)
+    numeric_cols = set()
+    for key, _ in headers:
+        values = [r.get(key, "") for r in rows]
+        non_empty = [v for v in values if v != ""]
+        if non_empty and all(_is_numeric(v) for v in non_empty):
+            numeric_cols.add(key)
+    
+    # Calculate column widths
+    widths = []
+    for key, title in headers:
+        max_data_width = max((len(str(r.get(key, ""))) for r in rows), default=0)
+        widths.append(max(len(title), max_data_width))
+    
+    # Print header row
+    header_parts = []
+    for (key, title), width in zip(headers, widths):
+        # Right-align numeric column headers, left-align text headers
+        if key in numeric_cols:
+            header_parts.append(title.rjust(width))
+        else:
+            header_parts.append(title.ljust(width))
+    print("  ".join(header_parts))
+    
+    # Print separator
+    print("  ".join("-" * w for w in widths))
+    
+    # Print data rows
     for r in rows:
-        print("  ".join(str(r.get(h[0], "")).ljust(w) for (w, h) in zip(widths, headers)))
+        row_parts = []
+        for (key, title), width in zip(headers, widths):
+            value = str(r.get(key, ""))
+            # Right-align numbers, left-align text
+            if key in numeric_cols:
+                row_parts.append(value.rjust(width))
+            else:
+                row_parts.append(value.ljust(width))
+        print("  ".join(row_parts))
+
+
+def _is_numeric(val) -> bool:
+    """Check if value is numeric."""
+    try:
+        float(val)
+        return True
+    except (ValueError, TypeError):
+        return False

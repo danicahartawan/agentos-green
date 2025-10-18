@@ -142,12 +142,70 @@ class NaiveClickerWhiteAgent:
         return {"action_type": "wait", "args": {"seconds": 0.5}}
 
 
+class BadClickerWhiteAgent:
+    """
+    Error-injected white agent for testing failure detection.
+    
+    Randomly skips or mis-clicks one step in ~10-20% of runs to demonstrate
+    that Green Agent detects failures correctly.
+    """
+    
+    def __init__(self, seed: int = 7, error_rate: float = 0.35):
+        """
+        Initialize bad clicker agent.
+        
+        Args:
+            seed: Random seed for reproducibility
+            error_rate: Probability of injecting an error (0.0 to 1.0)
+        """
+        self.seed = seed
+        self.error_rate = error_rate
+        self.step_count = 0
+        import random
+        random.seed(seed)
+        self.random = random
+        # Create a delegate naive clicker for correct actions
+        self.naive_delegate = NaiveClickerWhiteAgent(seed=seed)
+    
+    def reset(self):
+        """Reset agent state."""
+        self.step_count = 0
+        self.naive_delegate.reset()
+    
+    def predict(self, instruction: str, obs: dict) -> dict:
+        """
+        Predict action with occasional errors injected.
+        
+        Args:
+            instruction: Task instruction string
+            obs: Observation dictionary from environment
+        
+        Returns:
+            OSWorld-compatible action dict (sometimes wrong)
+        """
+        self.step_count += 1
+        
+        # Decide whether to inject error this step
+        if self.random.random() < self.error_rate:
+            # Inject a bad action: noop, wrong key, or close window
+            error_actions = [
+                {"action_type": "wait", "args": {"seconds": 0.1}},  # no-op
+                {"action_type": "key", "args": {"key": "escape"}},  # cancel
+                {"action_type": "type", "args": {"text": "wrong"}},  # wrong input
+                {"action_type": "key", "args": {"key": "tab"}},  # wrong navigation
+            ]
+            return self.random.choice(error_actions)
+        else:
+            # Use correct action from naive clicker
+            return self.naive_delegate.predict(instruction, obs)
+
+
 def build_white_agent(agent_key: str, seed: int = 7) -> Any:
     """
     Build a white agent instance by key.
     
     Args:
-        agent_key: Agent identifier (e.g., "naive_clicker")
+        agent_key: Agent identifier (e.g., "naive_clicker", "bad_clicker")
         seed: Random seed for reproducibility
     
     Returns:
@@ -156,6 +214,8 @@ def build_white_agent(agent_key: str, seed: int = 7) -> Any:
     key = agent_key.lower()
     if key == "naive_clicker":
         return NaiveClickerWhiteAgent(seed=seed)
+    elif key == "bad_clicker":
+        return BadClickerWhiteAgent(seed=seed)
     # TODO: add wrappers to mm_agents.* if you choose to demo a baseline
     print(f"[white_agent] {agent_key} not available; falling back to naive_clicker.")
     return NaiveClickerWhiteAgent(seed=seed)

@@ -39,16 +39,18 @@ def main():
         # Persist per-agent and collect combined
         write_agent_summary(os.path.join(cfg.reports_root, f"{agent_key}.json"), agent_key, summary, per_task)
         agent_summaries.append({"name": agent_key, "summary": summary, "per_task": per_task})
+        success_pct = round(summary["success_rate"] * 100, 1)
         table_rows.append({
+            "ok": "✓" if success_pct >= 50 else "✗",
             "agent": agent_key,
-            "success%": round(summary["success_rate"] * 100, 1),
+            "success%": success_pct,
             "avg_steps": summary["avg_steps"],
             "time_ms": summary["median_wall_time_ms"],
             "errors%": round(summary["error_rate"] * 100, 1),
         })
 
     write_combined_report(args.report, cfg.__dict__, agent_summaries)
-    console_table(table_rows, headers=[("agent", "Agent"), ("success%", "Success%"), ("avg_steps", "AvgSteps"), ("time_ms", "Time(ms)"), ("errors%", "Errors%")])
+    console_table(table_rows, headers=[("ok", ""), ("agent", "Agent"), ("success%", "Success%"), ("avg_steps", "AvgSteps"), ("time_ms", "Time(ms)"), ("errors%", "Errors%")])
 
 
 if __name__ == "__main__":
