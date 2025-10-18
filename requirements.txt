@@ -1,0 +1,9 @@
+# Green Agent Requirements
+# Minimal dependencies for Green Agent evaluator
+
+# Note: OSWorld dependencies required for full execution
+# Install OSWorld separately: pip install -r ../OSWorld/requirements.txt
+
+# Core dependencies (already in OSWorld)
+# These are listed for reference - install OSWorld to get them
+
