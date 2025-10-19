@@ -56,6 +56,16 @@ async def run_osworld_suite(
     repeats: int = 1,
     max_steps: int = 20,
     seed: int = 7,
+    provider: str = "docker",
+    action_space: str = "pyautogui",
+    headless: bool = False,
+    require_a11y_tree: bool = False,
+    path_to_vm: Optional[str] = None,
+    snapshot_name: Optional[str] = "init_state",
+    region: Optional[str] = None,
+    pause_after_action: float = 1.0,
+    client_password: Optional[str] = None,
+    success_threshold: float = 0.99,
 ) -> str:
     """
     Execute an OSWorld evaluation suite against a white agent.
@@ -68,6 +78,16 @@ async def run_osworld_suite(
         repeats: Number of runs per task
         max_steps: Maximum interaction steps per task
         seed: Random seed for deterministic behaviour
+        provider: DesktopEnv provider name (docker, vmware, aws, etc.)
+        action_space: DesktopEnv action space (e.g., "pyautogui")
+        headless: Whether to launch DesktopEnv in headless mode
+        require_a11y_tree: Request accessibility tree data from DesktopEnv
+        path_to_vm: VM path / identifier (provider-specific)
+        snapshot_name: Snapshot or AMI name to restore before each task
+        region: Provider region (for cloud providers)
+        pause_after_action: Seconds to sleep after each action
+        client_password: Guest OS password when required by DesktopEnv
+        success_threshold: Score threshold for marking success
 
     Returns:
         JSON string with summary metrics and per-task rows.
@@ -85,7 +105,16 @@ async def run_osworld_suite(
     results_dir.mkdir(parents=True, exist_ok=True)
 
     cfg = Config(
-        provider="docker",
+        provider=provider,
+        region=region,
+        path_to_vm=path_to_vm,
+        snapshot_name=snapshot_name,
+        action_space=action_space,
+        headless=headless,
+        require_a11y_tree=require_a11y_tree,
+        client_password=client_password,
+        pause_after_action=pause_after_action,
+        success_threshold=success_threshold,
         tasks_file=str(tasks_path) if tasks_path else None,
         domains=resolved_domains,
         repeats=repeats,
@@ -144,6 +173,15 @@ async def run_osworld_suite(
         "repeats": repeats,
         "max_steps": max_steps,
         "seed": seed,
+        "provider": provider,
+        "action_space": action_space,
+        "headless": headless,
+        "require_a11y_tree": require_a11y_tree,
+        "path_to_vm": path_to_vm,
+        "snapshot_name": snapshot_name,
+        "region": region,
+        "pause_after_action": pause_after_action,
+        "success_threshold": success_threshold,
         "summary": summary,
         "per_task": per_task,
         "reports_dir": str(report_dir),

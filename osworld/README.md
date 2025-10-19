@@ -44,5 +44,8 @@ osworld/
 
 - The default task list is `green_tasks_5.json`. Provide a custom task file or domain filter
   through the `run_osworld_suite` tool parameters when needed.
-- The current evaluator uses the stubbed environment loop from `green_agent/evaluator.py`.
-  Wiring it to the real OSWorld `DesktopEnv` remains future work.
+- The evaluator now drives OSWorld's `DesktopEnv` directly, so make sure the provider
+  configuration (VM images, credentials, etc.) is valid before launching a battle.
+- `run_osworld_suite` accepts additional keyword arguments (provider, action space,
+  headless, pause timing, etc.) so you can match the deployment requirements of your
+  DesktopEnv setup.
