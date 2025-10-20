@@ -47,7 +47,7 @@ class GreenEvaluator:
     # Environment helpers
     # --------------------------------------------------------------------- #
 
-    def _create_env(self) -> DesktopEnv:
+    def _create_env(self):
         """Instantiate a DesktopEnv using the configuration parameters."""
         kwargs: Dict[str, Any] = {
             "provider_name": self.cfg.provider or "docker",
@@ -105,23 +105,63 @@ class GreenEvaluator:
         return None
 
     def _format_action(
-        self, action: Dict[str, Any]
-    ) -> Tuple[Optional[str], Optional[float]]:
+        self, action: Any
+    ) -> Tuple[Optional[Any], Optional[float], Optional[str]]:
         """
         Convert agent action dict to DesktopEnv action payload based on action space.
 
         Returns:
-            Tuple of (action_payload, wait_override_seconds)
+            Tuple of (action_payload, wait_override_seconds, control_flag)
         """
-        if action.get("action_type") == "wait":
-            return None, float(action.get("args", {}).get("seconds", 1.0))
+        # Handle structured dictionaries
+        if isinstance(action, dict):
+            atype = action.get("action_type")
+            if atype == "wait":
+                return None, float(action.get("args", {}).get("seconds", 1.0)), None
+            if atype == "done":
+                status = action.get("args", {}).get("status", "success")
+                return None, None, f"done:{status}"
+            if atype == "fail":
+                return None, None, "fail"
+            if atype == "pyautogui_code":
+                code = action.get("args", {}).get("code")
+                if self.cfg.action_space != "pyautogui":
+                    LOGGER.warning(
+                        "Received pyautogui code while evaluator configured for %s",
+                        self.cfg.action_space,
+                    )
+                return code, None, None
+            if atype == "computer_13":
+                payload = action.get("args")
+                if not isinstance(payload, dict):
+                    raise ValueError("computer_13 action requires 'args' dict")
+                if self.cfg.action_space != "computer_13":
+                    LOGGER.warning(
+                        "Received computer_13 action while evaluator configured for %s",
+                        self.cfg.action_space,
+                    )
+                return payload, None, None
 
-        if self.cfg.action_space == "pyautogui":
-            cmd = self._pyautogui_action_from_dict(action)
-            return cmd, None
+            # Legacy pyautogui dict actions
+            if self.cfg.action_space == "pyautogui":
+                cmd = self._pyautogui_action_from_dict(action)
+                return cmd, None, None
 
-        # Additional action spaces can be added here when needed
-        raise ValueError(f"Unsupported action_space '{self.cfg.action_space}' for action {action}")
+            raise ValueError(f"Unsupported action dict format: {action}")
+
+        # Handle plain strings (e.g., pyautogui code or WAIT/DONE tokens)
+        if isinstance(action, str):
+            stripped = action.strip()
+            upper = stripped.upper()
+            if upper == "WAIT":
+                return None, self.cfg.pause_after_action, None
+            if upper == "DONE":
+                return None, None, "done:success"
+            if upper == "FAIL":
+                return None, None, "fail"
+            return stripped, None, None
+
+        raise ValueError(f"Unsupported action type: {action}")
 
     # --------------------------------------------------------------------- #
     # Execution
@@ -146,7 +186,7 @@ class GreenEvaluator:
         white_agent.reset()
         steps = 0
         errors: List[str] = []
-        action_history: List[dict] = []
+        action_history: List[Any] = []
         eval_detail: Dict[str, Any] = {}
         success = False
         score: Optional[float] = None
@@ -182,9 +222,13 @@ class GreenEvaluator:
                     LOGGER.exception("Agent predict failed on step %s", steps)
                     break
 
-                action_history.append(agent_action)
+                history_entry = (
+                    agent_action if isinstance(agent_action, dict)
+                    else {"action_type": "raw", "raw": agent_action}
+                )
+                action_history.append(history_entry)
                 try:
-                    formatted_action, wait_override = self._format_action(agent_action)
+                    formatted_action, wait_override, control = self._format_action(agent_action)
                 except Exception as exc:
                     errors.append(f"action_translation_failed: {exc}")
                     LOGGER.warning(
@@ -194,6 +238,16 @@ class GreenEvaluator:
                         exc,
                     )
                     break
+
+                if control:
+                    if control.startswith("done"):
+                        status = control.split(":", 1)[1] if ":" in control else "success"
+                        success = status == "success"
+                        eval_detail.setdefault("agent_terminated", status)
+                        break
+                    if control == "fail":
+                        errors.append("agent_reported_failure")
+                        break
 
                 if formatted_action is None:
                     # Wait / noop, but still respect configured pause or override

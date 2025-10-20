@@ -2,39 +2,9 @@
   "domains": ["chrome", "libreoffice_calc", "os", "libreoffice_writer", "gimp"],
   "tasks": [
     {
-      "id": "chrome_search_keyword",
-      "domain": "chrome",
-      "example_path": "evaluation_examples/examples/chrome/bb5e4c0d-f964-439c-97b6-bdb9747de3f4.json",
-      "fallback_check": "results page contains query string and results container",
-      "expected": {"query": "OSWorld benchmark"}
-    },
-    {
-      "id": "calc_edit_cell",
-      "domain": "libreoffice_calc",
-      "example_path": "evaluation_examples/examples/libreoffice_calc/01b269ae-2111-4a07-81fd-3fcd711993b0.json",
-      "fallback_check": "cell B2 equals '42'",
-      "expected": {"cell": "B2", "value": "42"}
-    },
-    {
       "id": "os_make_folder",
       "domain": "os",
-      "example_path": "evaluation_examples/examples/os/13584542-872b-42d8-b299-866967b5c3ef.json",
-      "fallback_check": "folder exists at ~/Desktop/demo_folder",
-      "expected": {"path": "~/Desktop/demo_folder"}
-    },
-    {
-      "id": "writer_bold_text",
-      "domain": "libreoffice_writer",
-      "example_path": "evaluation_examples/examples/libreoffice_writer/0810415c-bde4-4443-9047-d5f70165a697.json",
-      "fallback_check": "document contains 'Hello' with bold style",
-      "expected": {"text": "Hello"}
-    },
-    {
-      "id": "gimp_export_png",
-      "domain": "gimp",
-      "example_path": "evaluation_examples/examples/gimp/045bf3ff-9077-4b86-b483-a1040a949cff.json",
-      "fallback_check": "file exported to ~/Pictures/out.png and is PNG",
-      "expected": {"path": "~/Pictures/out.png", "format": "PNG"}
+      "example_path": "evaluation_examples/examples/os/13584542-872b-42d8-b299-866967b5c3ef.json"
     }
   ]
 }

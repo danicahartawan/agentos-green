@@ -19,7 +19,7 @@ def main():
     p.add_argument("--tasks-file", type=str, default=None)
     p.add_argument("--domains", nargs="*", default=None)
     p.add_argument("--white-agents", nargs="*", default=["naive_clicker"])
-    p.add_argument("--repeats", type=int, default=3)
+    p.add_argument("--repeats", type=int, default=1)
     p.add_argument("--max-steps", type=int, default=50)
     p.add_argument("--timeout-sec", type=int, default=90)
     p.add_argument("--seed", type=int, default=7)

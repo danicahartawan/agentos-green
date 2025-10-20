@@ -48,8 +48,8 @@ def load_tasks(tasks_file: Optional[str], domains: Optional[List[str]]) -> List[
                 "id": t["id"],
                 "domain": t["domain"],
                 "example_path": t.get("example_path") or _normalize_example_path(t["domain"], t["id"]),
-                "fallback_check": t["fallback_check"],
-                "expected": t.get("expected", None),
+                "fallback_check": t.get("fallback_check"),
+                "expected": t.get("expected"),
             })
     else:
         # Fall back to OSWorld master listing
@@ -62,7 +62,7 @@ def load_tasks(tasks_file: Optional[str], domains: Optional[List[str]]) -> List[
                     "id": task_id,
                     "domain": domain,
                     "example_path": _normalize_example_path(domain, task_id),
-                    "fallback_check": "native_or_visible_end_state",
+                    # "fallback_check": "native_or_visible_end_state",
                 })
     
     return tasks

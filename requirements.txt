@@ -7,3 +7,5 @@
 # Core dependencies (already in OSWorld)
 # These are listed for reference - install OSWorld to get them
 
+# Optional:
+# agentbeats>=0.1.0  # required when using A2A white agents (provides the `a2a` package)

@@ -62,7 +62,7 @@ def fallback_eval(task_spec: dict, env_handle: Any, action_history: List[dict] =
     # Check for bad action patterns (simulate failure detection)
     if action_history:
         # Detect bad_clicker patterns: lots of escapes, wrong text, or no-ops
-        bad_indicators = sum(1 for a in action_history if (
+        bad_indicators = sum(1 for a in action_history if isinstance(a, dict) and (
             (a.get("action_type") == "key" and a.get("args", {}).get("key") == "escape") or
             (a.get("action_type") == "hotkey" and a.get("args", {}).get("keys") == ["alt", "f4"]) or
             (a.get("action_type") == "type" and a.get("args", {}).get("text") == "wrong")

@@ -15,50 +15,97 @@ green_agent/
 ├── task_loader.py              # Load & filter OSWorld tasks
 ├── white_agent_runner.py       # Execute white agents on tasks
 ├── scorer.py                   # Aggregate results & calculate metrics
-├── reporter.py                 # Generate reports (JSON, Markdown, CSV)
+├── reporter.py                 # Generate report artifacts
 └── evaluator.py                # Main orchestrator (GreenAgentEvaluator)
+```
+
+The AgentBeats-facing assets live in the `osworld/` directory:
+
+```
+osworld/
+├── scenario.toml               # AgentBeats scenario definition
+├── start_agents.py             # Helper launcher (calls agentbeats run …)
+├── agents/
+│   └── green_agent/
+│       ├── agent_card_osworld.toml
+│       └── tools.py            # MCP tool handlers (run_osworld_suite, …)
+└── resources/
+    └── mcp_server.py           # Logging / artifact MCP server
 ```
 
 ## Usage
 
-### Quick Start (Dry Run)
+### Prerequisites
 
 ```bash
-# Test configuration without execution
-python run_green_agent.py --dry_run --domains chrome
+# Install dependencies
+pip install -r requirements.txt
+
+# Make sure OSWorld is available (for PromptAgent + task assets)
+export PYTHONPATH="/path/to/OSWorld:${PYTHONPATH}"
+
+# (Optional) export LLM credentials for the white agent
+export OPENAI_API_KEY=...
 ```
 
-### Run Evaluation
+### Local Benchmark Run
 
 ```bash
-# Basic evaluation on all tasks
+# Evaluate the curated tasks in green_tasks_5.json
 python run_green_agent.py \
-    --model gpt-4o \
-    --provider_name docker \
-    --headless
-
-# Evaluate specific domains
-python run_green_agent.py \
-    --model gpt-4o \
-    --domains chrome libreoffice_calc \
-    --provider_name docker
-
-# Parallel execution
-python run_green_agent.py \
-    --model gpt-4o \
-    --num_parallel_envs 10 \
-    --provider_name aws \
-    --region us-east-1
+    --tasks-file green_tasks_5.json \
+    --white-agents osworld_prompt:model=gpt-4o,observation_type=screenshot,action_space=pyautogui \
+    --provider vmware \
+    --path-to-vm /path/to/Ubuntu.vmx \
+    --client-password password \
+    --pause-after-action 3
 ```
 
-### Custom White Agent
+### Alternate White Agents
+
+```bash
+# Built-in PromptAgent wrapper with a different model / action space
+python run_green_agent.py \
+    --tasks-file green_tasks_5.json \
+    --white-agents osworld_prompt:model=gemini-2.5-flash,observation_type=screenshot,action_space=computer_13 \
+    --provider vmware \
+    --path-to-vm /path/to/Ubuntu.vmx
+```
+
+#### Remote (A2A) White Agent
+
+To proxy decisions to a remotely hosted AgentBeats A2A service, use the special
+`a2a::` prefix in the `--white_agents` flag:
 
 ```bash
 python run_green_agent.py \
-    --white_agent_module mm_agents.custom_agent \
-    --white_agent_type CustomAgent \
-    --model claude-3-opus
+    --white_agents a2a::http://localhost:8061 \
+    --provider vmware \
+    --path-to-vm /path/to/Ubuntu.vmx \
+    --client-password password
 ```
+
+The remote agent must return an OSWorld action JSON payload in response to each
+message. Make sure the AgentBeats SDK (`a2a` package) is installed locally so
+the wrapper can resolve the remote agent card.
+
+#### OSWorld Prompt Agent Wrapper
+
+To reuse OSWorld's GPT-powered baseline directly, select the special
+`osworld_prompt` key (requires the OSWorld repository on `PYTHONPATH` and
+relevant LLM credentials):
+
+```bash
+python run_green_agent.py \
+    --white_agents osworld_prompt:model=gpt-4o,observation_type=screenshot,action_space=pyautogui \
+    --provider vmware \
+    --path-to-vm /path/to/Ubuntu.vmx \
+    --client-password password \
+    --pause-after-action 3
+```
+
+You can override additional parameters (for example `observation_type` or
+`temperature`) by adding comma-separated `key=value` pairs after the colon.
 
 ## Configuration
 
@@ -74,23 +121,24 @@ Key configuration parameters:
 - `--model`: Model name (e.g., `gpt-4o`, `claude-3-opus`)
 
 **Environment:**
-- `--provider_name`: `docker`, `vmware`, `aws`, `azure`, `virtualbox`
+- `--provider`: `docker`, `vmware`, `aws`, `azure`, `virtualbox`
 - `--headless`: Run without GUI
-- `--num_parallel_envs`: Parallel execution (default: 1)
+- `--path-to-vm`: VM image or snapshot path (provider specific)
 
 **Execution:**
-- `--max_steps`: Max steps per task (default: 15)
+- `--max-steps`: Max steps per task (default: 50)
 - `--action_space`: `pyautogui` or `computer_13`
 - `--observation_type`: `screenshot`, `a11y_tree`, etc.
+- `--pause-after-action`: Sleep after each action (seconds)
+- `--timeout-sec`: Max wall-clock per task
 
 **Output:**
-- `--result_dir`: Results directory (default: `./results`)
-- `--report_dir`: Reports directory (default: `./reports`)
-- `--run_name`: Custom run name (auto-generated if not provided)
+- `--results-root`: Results directory (default: `./results`)
+- `--reports-root`: Reports directory (default: `./reports`)
 
 **Modes:**
-- `--dry_run`: Validate configuration without execution
-- `--no_resume`: Don't skip completed tasks
+- `--headless`: Run without VMware GUI
+- `--require-a11y-tree`: Request accessibility tree in each observation
 
 ## Output Structure
 
@@ -152,10 +200,7 @@ reports/
 **TODO (see code comments):**
 - ⏳ Parallel execution (currently falls back to sequential)
 - ⏳ Advanced error handling
-- ⏳ Progress tracking with tqdm
-- ⏳ Result caching
-- ⏳ Custom evaluator plugins
-- ⏳ More statistical metrics
+- ⏳ Additional telemetry / dashboards
 
 ## Example Output
 
@@ -180,22 +225,29 @@ Report Directory: ./reports/green_agent_gpt-4o_20251018_103612
 
 ## Integration with AgentBeats
 
-Green Agent is designed to integrate seamlessly with the AgentBeats evaluation framework:
+The project ships an AgentBeats-ready scenario so the green evaluator can be
+launched like any other hosting agent:
 
-1. **Standardized Interface**: Compatible with AgentBeats hosting evaluator requirements
+1. `osworld/scenario.toml` registers the `[OSWorld] Green Evaluator` and points
+   at the agent card, tool module (`osworld/agents/green_agent/tools.py`), and
+   MCP server (`osworld/resources/mcp_server.py`).
+2. `osworld/start_agents.py` is the helper launcher. It runs
+   `agentbeats run agents/green_agent/agent_card_osworld.toml ...` so the agent
+   is ready to accept battles.
+3. When AgentBeats calls `run_osworld_suite`, the tool constructs a
+   `GreenEvaluator`, boots DesktopEnv, drives the white agent (PromptAgent
+   wrapper or A2A proxy), and writes metrics/artifacts under `reports/`.
+4. Status updates and artifacts are pushed back over MCP via
+   `update_battle_process` and `store_battle_artifact`, so the standard
+   AgentBeats dashboards record progress.
+
+For local testing you can run `python osworld/start_agents.py` alongside
+`python osworld/resources/mcp_server.py --port 9101`, then trigger
+assessments from the AgentBeats CLI/UI.
 2. **Reproducible Metrics**: Deterministic scoring with detailed artifacts
 3. **Flexible Configuration**: Support for various white agents and models
 4. **Comprehensive Reporting**: Multiple output formats for analysis
 
-## Contributing
-
-When adding features:
-1. Follow existing code structure and patterns
-2. Add TODOs for incomplete implementations
-3. Maintain compatibility with OSWorld infrastructure
-4. Update this README with new capabilities
-
 ## License
 
 Follows OSWorld's Apache 2.0 license.
-
