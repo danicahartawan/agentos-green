@@ -51,7 +51,10 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+.vmware_lck
+.vmware_vms
 
 # Helpful stuff
 cybergym/
 OSWorldPaper/
+.env
